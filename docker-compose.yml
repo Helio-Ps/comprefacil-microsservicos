@@ -1,0 +1,75 @@
+# Infraestrutura do desafio: banco de dados (Postgres) e mensageria (RabbitMQ).
+#
+#   docker compose up -d                -> sobe só Postgres e RabbitMQ (rode os serviços com npm)
+#   docker compose --profile app up -d  -> sobe tudo, inclusive os dois serviços em containers
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comprefacil-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: comprefacil-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: "123456"
+    ports:
+      - "5672:5672"   # AMQP (usado pelos serviços)
+      - "15672:15672" # painel web: http://localhost:15672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  payment-service:
+    profiles: ["app"]
+    build: ./payment-service
+    container_name: comprefacil-payment
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:root@postgres:5432/payment_db
+      RABBITMQ_URL: amqp://admin:123456@rabbitmq:5672
+      PROCESSING_DELAY_MS: 5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    profiles: ["app"]
+    build: ./notification-service
+    container_name: comprefacil-notification
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:root@postgres:5432/notification_db
+      RABBITMQ_URL: amqp://admin:123456@rabbitmq:5672
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

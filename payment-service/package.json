@@ -1,0 +1,20 @@
+{
+  "name": "payment-service",
+  "version": "1.0.0",
+  "description": "CompreFácil - serviço de pagamento (REST + AMQP)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "pg": "^8.13.1"
+  }
+}
